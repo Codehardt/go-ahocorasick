@@ -3,6 +3,7 @@ package ahocorasick
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,7 +16,9 @@ func ExampleMatch() {
 	//ac.(*ahoCorasick).root.print('S', 0)
 	for _, s := range append(allStrings) {
 		fmt.Printf("----- %s -----\n", s)
-		for _, m := range ac.Match(s) {
+		matches := ac.Match(s)
+		sort.Ints(matches)
+		for _, m := range matches {
 			fmt.Println(allStrings[m])
 		}
 	}
@@ -53,7 +56,9 @@ func TestFailLink(t *testing.T) {
 
 func TestOutputLink(t *testing.T) {
 	ac := New([]string{"abcd", "bcd", "c", "abd"})
-	if matches := ac.Match("abcd"); !reflect.DeepEqual(matches, []int{0, 1, 2}) {
+	matches := ac.Match("abcd")
+	sort.Ints(matches)
+	if !reflect.DeepEqual(matches, []int{0, 1, 2}) {
 		t.Fatalf("wrong abcd match: %+v", matches)
 	}
 }
