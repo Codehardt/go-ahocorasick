@@ -142,7 +142,7 @@ func (n *node) find(s string, res map[int]struct{}) {
 	if child, ok := n.children[s[0]]; ok {
 		// recursively search for the string in the child node
 		child.find(s[1:], res)
-	} else {
+	} else if n.failLink != n {
 		// no child node found, search for more results in the fail link instead
 		n.failLink.find(s, res)
 	}
