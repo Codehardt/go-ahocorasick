@@ -1,5 +1,9 @@
 package ahocorasick
 
+import (
+	"sort"
+)
+
 // AhoCorasick is an interface that returns all matching strings in a text. Use New() to initialize a new AhoCorasick interface.
 type AhoCorasick interface {
 	// Match returns all indices of strings that were found in the passed text
@@ -11,26 +15,38 @@ type ahoCorasick struct {
 }
 
 // Match is the interface implementation of AhoCorasick's Match function
-func (a *ahoCorasick) Match(text string) []int {
-	return a.root.find(text)
+func (a *ahoCorasick) Match(text string) (res []int) {
+	resMap := make(map[int]struct{})
+	a.root.find(text, resMap)
+	res = make([]int, len(resMap))
+	var i int
+	for elem := range resMap {
+		res[i] = elem
+		i++
+	}
+	sort.Ints(res)
+	return
 }
 
 // New builds a new AhoCorasick interface.
 func New(allStrings []string) AhoCorasick {
 	ac := &ahoCorasick{root: new(node)}
 	ac.root.children = make(map[byte]*node)
-	ac.root.fail = ac.root
+	ac.root.failLink = ac.root
 	for i, s := range allStrings {
 		ac.root.add(i, s)
 	}
-	allFailures(ac.root, ac.root, nil)
+	setFailLinks(ac.root, ac.root, true)
+	setOutputLinks(ac.root)
 	return ac
 }
 
 type node struct {
-	children map[byte]*node
-	leaf     *int
-	fail     *node
+	children      map[byte]*node
+	output        *int
+	failLink      *node
+	outputLink    *node
+	outputLinkSet bool
 }
 
 func (n *node) add(i int, s string) {
@@ -42,42 +58,68 @@ func (n *node) add(i int, s string) {
 	}
 	s = s[1:]
 	if s == "" {
-		child.leaf = &i
+		child.output = &i
 	} else {
 		child.add(i, s)
 	}
 }
 
-func allFailures(root *node, child *node, prefix []byte) {
-	for b, child := range child.children {
-		child.fail = failure(root, append(prefix, b)[1:])
-		allFailures(root, child, append(prefix, b))
-	}
-}
-
-func failure(root *node, suffix []byte) *node {
-	curr := root
-	for _, b := range suffix {
-		child, ok := curr.children[b]
-		if !ok {
-			return failure(root, suffix[1:]) // suffix not found in trie, try a shorter suffix
+func setFailLinks(root *node, n *node, isRoot bool) {
+	for b, child := range n.children {
+		if isRoot {
+			child.failLink = root
+		} else {
+			child.failLink = getFailLink(root, n, b)
 		}
-		curr = child
+		setFailLinks(root, child, false)
 	}
-	return curr
 }
 
-func (n *node) find(s string) (res []int) {
-	if n.leaf != nil {
-		res = append(res, *n.leaf)
+func getFailLink(root *node, parent *node, b byte) *node {
+	if failChild, ok := parent.failLink.children[b]; ok {
+		return failChild
 	}
+	return root
+}
+
+func setOutputLinks(n *node) {
+	for _, child := range n.children {
+		setOutputLink(child)
+		setOutputLinks(child)
+	}
+}
+
+func setOutputLink(n *node) *node {
+	if !n.outputLinkSet {
+		n.outputLinkSet = true
+		if n.failLink.output != nil {
+			n.outputLink = n.failLink
+		} else {
+			n.outputLink = setOutputLink(n.failLink)
+		}
+	}
+	return n.outputLink
+}
+
+func (n *node) find(s string, res map[int]struct{}) {
+	if n.output != nil {
+		res[*n.output] = struct{}{}
+	}
+	n.followOutputLink(res)
 	if s == "" {
 		return
 	}
 	if child, ok := n.children[s[0]]; ok {
-		res = append(res, child.find(s[1:])...)
-	} else if n.fail != nil {
-		res = append(res, n.fail.find(s[1:])...)
+		child.find(s[1:], res)
+	} else {
+		n.failLink.find(s, res)
 	}
 	return
+}
+
+func (n *node) followOutputLink(res map[int]struct{}) {
+	if n.outputLink != nil {
+		res[*n.outputLink.output] = struct{}{}
+		n.outputLink.followOutputLink(res)
+	}
 }
