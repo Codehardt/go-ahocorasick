@@ -74,3 +74,10 @@ func (n *node) print(b byte, indent int) {
 		child.print(b, indent+1)
 	}
 }
+
+func Example_bar_qux() {
+	ac := New([]string{"bar", "qux"})
+	fmt.Println(ac.Match("bar qux"))
+	// Output:
+	// [0 1]
+}

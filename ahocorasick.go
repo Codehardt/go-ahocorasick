@@ -145,6 +145,8 @@ func (n *node) find(s string, res map[int]struct{}) {
 	} else if n.failLink != n {
 		// no child node found, search for more results in the fail link instead
 		n.failLink.find(s, res)
+	} else {
+		n.failLink.find(s[1:], res)
 	}
 	return
 }
