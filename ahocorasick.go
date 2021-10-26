@@ -97,6 +97,10 @@ func getFailLink(root *node, parent *node, b byte) *node {
 		// use this child node as fail link
 		return failChild
 	}
+	if failChild, ok := root.children[b]; ok {
+		// if the root node has a valid children node for the specific byte, use this child node as fail link
+		return failChild
+	}
 	// otherwise use the root node as fail link
 	return root
 }
