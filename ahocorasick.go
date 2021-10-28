@@ -32,7 +32,7 @@ func New(allStrings []string) AhoCorasick {
 	}
 	// generate fail links
 	ac.failLink = ac
-	setFailLinks(ac, ac, true)
+	setFailLinks(ac)
 	// generate output links
 	setOutputLinks(ac)
 	return ac
@@ -42,6 +42,8 @@ func New(allStrings []string) AhoCorasick {
 type node struct {
 	// children is a map of children based on it's byte
 	children map[byte]*node
+	parent   *node
+	value    byte
 	// if this node is the end of a string, then the output points to the string's index
 	output *int
 	// if no children with a specific byte was found, use the fail link
@@ -59,6 +61,8 @@ func (n *node) add(i int, s string) {
 	if child == nil {
 		// if the character was not found yet in the trie's path, add a new node
 		child = new(node)
+		child.parent = n
+		child.value = s[0]
 		child.children = make(map[byte]*node)
 		n.children[s[0]] = child
 	}
@@ -73,36 +77,41 @@ func (n *node) add(i int, s string) {
 }
 
 // setFailLinks links all nodes with a fail link
-func setFailLinks(root *node, n *node, isRoot bool) {
+func setFailLinks(n *node) {
 	// iterate over all children that need a fail link
-	for b, child := range n.children {
-		if isRoot {
-			// the nodes with depth 1 (with root as parent) always have to get the root as fail link
-			child.failLink = root
-		} else {
-			// otherwise the failover is either:
-			// - the child node of the fail link of the parent node
-			// - the root node
-			child.failLink = getFailLink(root, n, b)
-		}
-		// recursively set fail links of children
-		setFailLinks(root, child, false)
+	for _, child := range n.children {
+		setFailLink(child)
+		setFailLinks(child)
 	}
 }
 
 // getFailLink returns the fail link for a children
-func getFailLink(root *node, parent *node, b byte) *node {
-	if failChild, ok := parent.failLink.children[b]; ok {
-		// if the parent node has a fail link and the fail link has a valid children node for the specific byte,
-		// use this child node as fail link
-		return failChild
+func setFailLink(n *node) *node {
+	if n.failLink != nil {
+		// faillink already set
+		return n.failLink
 	}
-	if failChild, ok := root.children[b]; ok {
-		// if the root node has a valid children node for the specific byte, use this child node as fail link
-		return failChild
+	if n.parent.parent == nil {
+		// special case: nodes of depth 1 always have the root as fail link
+		n.failLink = n.parent
+		return n.failLink
 	}
-	// otherwise use the root node as fail link
-	return root
+	failLink := setFailLink(n.parent)
+	for {
+		if failChild, ok := failLink.children[n.value]; ok {
+			// if the fail link has a valid children node for the specific byte,
+			// use this child node as fail link
+			n.failLink = failChild
+			return n.failLink
+		}
+		if failLink.parent == nil {
+			// if the faillink is the root, use the root as faillink
+			n.failLink = failLink
+			return n.failLink
+		}
+		// otherwise get the faillink of the faillink
+		failLink = setFailLink(failLink)
+	}
 }
 
 // setOutputLinks sets the output links for all nodes
